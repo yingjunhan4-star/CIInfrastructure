@@ -1,15 +1,15 @@
 {
   "jobs": [
     {
-      "name": "TWGameV0_Zero_Dev_Pipeline",
+      "name": "TWGameV0_Zero_Release_Pipeline",
       "repositoryUrl": "https://svn.example.com/svn/TWGame/branches/TWGameV0_Zero/client",
       "credentialsId": "client-svn",
       "scriptPath": "Jenkinsfile"
     },
     {
       "name": "TWGameV0_Zero_GameAdmin_Pipeline",
-      "repositoryUrl": "https://svn.example.com/svn/TWGame/branches/TWGameV0_Zero/client",
-      "credentialsId": "client-svn",
+      "repositoryUrl": "https://svn.example.com/svn/TWGame/branches/TWGameV0_Zero/serverET/GameAdmin",
+      "credentialsId": "gameadmin-svn",
       "scriptPath": "Jenkinsfile.gameadmin"
     }
   ]
