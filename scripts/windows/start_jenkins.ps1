@@ -189,6 +189,8 @@ if (Test-IsWindows) {
     $startParameters.WindowStyle = "Hidden"
 }
 
+# Jenkins reads JENKINS_HOME from the child process environment.
+$env:JENKINS_HOME = $JenkinsHome
 $process = Start-Process @startParameters
 Set-Content -LiteralPath (Join-Path $JenkinsHome "jenkins.pid") -Value $process.Id -Encoding ASCII
 

@@ -111,6 +111,22 @@ macOS JENKINS_HOME=$HOME/.jenkins-infra
 监听地址=127.0.0.1
 ```
 
+Jenkins Home 可以修改，但必须在启动和停止时使用同一个目录。Windows 示例：
+
+```bat
+scripts\windows\start_jenkins.bat -JenkinsHome D:\JenkinsHome
+scripts\windows\stop_jenkins.bat -JenkinsHome D:\JenkinsHome
+```
+
+macOS 示例：
+
+```bash
+./scripts/macos/start_jenkins.sh --jenkins-home "$HOME/JenkinsHome"
+JENKINS_HOME="$HOME/JenkinsHome" ./scripts/macos/stop_jenkins.sh
+```
+
+建议将 Jenkins Home 放在项目仓库之外，并确保运行账号对该目录有读写权限。
+
 ## Job 配置
 
 复制 `config/jobs.example.json` 的条目到本地 `config/jobs.json`，填写实际 SVN 地址和 Jenkins 凭据 ID。`config/jobs.json` 已被 Git 忽略，凭据本身只在 Jenkins Credentials 中维护，不写入仓库。
