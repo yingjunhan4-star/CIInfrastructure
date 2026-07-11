@@ -1,84 +1,102 @@
-# Jenkins 运维脚本
+# CI Infrastructure
 
-本目录只维护 Jenkins 实例的启停、健康检查和 Pipeline Job 配置，不依赖任何 Unity 工程。
+本目录维护跨项目 Jenkins 实例的启停、健康检查和 Pipeline Job 配置，不依赖任何 Unity 工程。
 
 ## 目录
 
 ```text
 jenkins-infra/
 ├── config/
-│   ├── jobs.json
-│   └── jobs.example.json
+│   ├── jobs.json              本地配置，不提交
+│   └── jobs.example.json      公共示例
 ├── scripts/
+│   ├── start_jenkins.bat
 │   ├── start_jenkins.ps1
+│   ├── stop_jenkins.bat
 │   ├── stop_jenkins.ps1
+│   ├── healthcheck_jenkins.bat
 │   ├── healthcheck_jenkins.ps1
-│   └── create_pipeline_jobs.ps1
+│   ├── create_pipeline_jobs.bat
+│   ├── create_pipeline_jobs.ps1
+│   └── macos/
+│       ├── start_jenkins.sh
+│       ├── stop_jenkins.sh
+│       ├── healthcheck_jenkins.sh
+│       └── create_pipeline_jobs.sh
 └── README.md
 ```
 
-## Windows / macOS 前置条件
+## 前置条件
+
+Windows：
 
 - Java 17；
-- PowerShell 7 (`pwsh`)；
-- Jenkins 节点所需的 SVN、Unity、Node.js 等工具由各项目 Job 自行配置；
-- macOS 需要系统自带的 `lsof`，用于检查端口占用。
+- Windows PowerShell；
+- Jenkins 节点所需的 SVN、Unity、Node.js 等工具由各项目 Job 自行配置。
 
-## 第一次启动
+macOS：
 
-在 PowerShell 中执行：
+- Java 17；
+- Bash/Zsh；
+- `curl`、`lsof`、`jq`；
+- Jenkins 节点所需的 SVN、Unity、Node.js 等工具由各项目 Job 自行配置。
 
-```powershell
-Set-Location <CIInfrastructure目录>
-.\scripts\create_pipeline_jobs.ps1 -ConfigPath .\config\jobs.json -DryRun
-.\scripts\create_pipeline_jobs.ps1 -ConfigPath .\config\jobs.json
-.\scripts\start_jenkins.ps1
-.\scripts\healthcheck_jenkins.ps1
-```
-
-macOS 使用 PowerShell 7：
+macOS 可使用 Homebrew 安装缺少的工具：
 
 ```bash
-pwsh ./scripts/create_pipeline_jobs.ps1 -ConfigPath ./config/jobs.json -DryRun
-pwsh ./scripts/create_pipeline_jobs.ps1 -ConfigPath ./config/jobs.json
-pwsh ./scripts/start_jenkins.ps1
-pwsh ./scripts/healthcheck_jenkins.ps1
+brew install openjdk@17 jq
+```
+
+## Windows 使用
+
+Windows 入口使用 `.bat`，由 `.bat` 转调对应的 PowerShell 脚本：
+
+```bat
+scripts\create_pipeline_jobs.bat -ConfigPath config\jobs.json -DryRun
+scripts\create_pipeline_jobs.bat -ConfigPath config\jobs.json
+scripts\start_jenkins.bat
+scripts\healthcheck_jenkins.bat
+```
+
+停止 Jenkins：
+
+```bat
+scripts\stop_jenkins.bat
+```
+
+## macOS 使用
+
+macOS 直接使用原生 Shell，不依赖 PowerShell：
+
+```bash
+chmod +x scripts/macos/*.sh
+./scripts/macos/create_pipeline_jobs.sh --config ./config/jobs.json --dry-run
+./scripts/macos/create_pipeline_jobs.sh --config ./config/jobs.json
+./scripts/macos/start_jenkins.sh
+./scripts/macos/healthcheck_jenkins.sh
+```
+
+停止 Jenkins：
+
+```bash
+./scripts/macos/stop_jenkins.sh
 ```
 
 默认配置：
 
 ```text
-Windows: %USERPROFILE%\.jenkins-infra
-macOS: $HOME/.jenkins-infra
+Windows JENKINS_HOME=%USERPROFILE%\.jenkins-infra
+macOS JENKINS_HOME=$HOME/.jenkins-infra
 端口=8080
 监听地址=127.0.0.1
 ```
 
-首次启动前，先根据 `config/jobs.json` 创建 Pipeline Job：
+## Job 配置
 
-```powershell
-.\scripts\create_pipeline_jobs.ps1 -ConfigPath .\config\jobs.json -DryRun
-.\scripts\create_pipeline_jobs.ps1 -ConfigPath .\config\jobs.json
-```
-
-已有 Jenkins 实例更新 Job 配置时，先执行 `stop_jenkins.ps1`，再生成 Job 配置，最后重新执行 `start_jenkins.ps1`。
+复制 `config/jobs.example.json` 的条目到本地 `config/jobs.json`，填写实际 SVN 地址和 Jenkins 凭据 ID。`config/jobs.json` 已被 Git 忽略，凭据本身只在 Jenkins Credentials 中维护，不写入仓库。
 
 Job 使用 `Pipeline script from SCM` 模式。每个 Job 的 SVN 地址和 Jenkinsfile 路径由配置文件指定，Jenkins 自动分配工作区，不使用开发人员工作副本，也不设置 `customWorkspace`。
 
-## 停止 Jenkins
-
-```powershell
-.\scripts\stop_jenkins.ps1
-```
-
-macOS：
-
-```bash
-pwsh ./scripts/stop_jenkins.ps1
-```
-
-## Job 配置
-
-复制 `config/jobs.example.json` 的条目到 `config/jobs.json`，填写实际 SVN 地址和 Jenkins 凭据 ID。凭据只在 Jenkins 页面或 Credentials 中维护，不写入本仓库。
+首次启动前先生成 Job 配置。已有 Jenkins 实例更新 Job 配置时，先停止 Jenkins，再生成配置，最后重新启动，确保 Jenkins 加载最新的 `config.xml`。
 
 创建远程 SVN 运维目录或提交前，需要先确认 SVN 管理员提供的仓库 URL 和提交权限。本地目录的生成不等于远程 SVN 仓库已经创建。
