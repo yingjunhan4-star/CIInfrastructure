@@ -4,7 +4,13 @@
       "name": "TWGameV0_Zero_Release_Pipeline",
       "repositoryUrl": "https://svn.example.com/svn/TWGame/branches/TWGameV0_Zero/client",
       "credentialsId": "client-svn",
-      "scriptPath": "Jenkinsfile"
+      "scriptPath": "Jenkinsfile",
+      "parameters": [
+        { "type": "string", "name": "UNITY_EXE_OVERRIDE", "defaultValue": "", "description": "Optional Unity executable path." },
+        { "type": "choice", "name": "PLATFORM", "choices": ["WeChatMiniGame", "PC", "Android", "IOS", "MACOS"], "description": "Release pipeline target platform." },
+        { "type": "boolean", "name": "DRY_RUN", "defaultValue": true, "description": "Validate the pipeline without building or uploading." },
+        { "type": "password", "name": "GAMEADMIN_JENKINS_TOKEN", "description": "Configure the secret value only in Jenkins." }
+      ]
     },
     {
       "name": "TWGameV0_Zero_GameAdmin_Pipeline",

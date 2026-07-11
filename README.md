@@ -173,4 +173,8 @@ Job 使用 `Pipeline script from SCM` 模式。每个 Job 的 SVN 地址和 Jenk
 
 首次启动前先生成 Job 配置。已有 Jenkins 实例更新 Job 配置时，先停止 Jenkins，再生成配置，最后重新启动，确保 Jenkins 加载最新的 `config.xml`。默认更新只修改 Job 的 SCM 地址和 Jenkinsfile 路径，并保留现有参数、默认值、触发器和其他 Job 设置；只有显式传入 `-ResetJobConfig` 才会重置整个 Job 配置。
 
+每个 Job 可在 `parameters` 数组中声明首次创建或显式重置时使用的参数。支持的 `type` 为 `string`、`boolean`、`choice` 和 `password`；`choice` 需要非空的 `choices` 数组，`password` 不能写入 `defaultValue`，其实际值只能在 Jenkins 后台保存。创建后在 Jenkins 页面修改参数会被保留，普通 Job 更新不会覆盖它们。
+
+如需只重置一个 Job 的初始配置，可使用 `-JobName <名称> -ResetJobConfig`，避免影响同一 Jenkins 实例中的其他 Job。
+
 创建远程 SVN 运维目录或提交前，需要先确认 SVN 管理员提供的仓库 URL 和提交权限。本地目录的生成不等于远程 SVN 仓库已经创建。
