@@ -17,6 +17,13 @@ jenkins-infra/
 └── README.md
 ```
 
+## Windows / macOS 前置条件
+
+- Java 17；
+- PowerShell 7 (`pwsh`)；
+- Jenkins 节点所需的 SVN、Unity、Node.js 等工具由各项目 Job 自行配置；
+- macOS 需要系统自带的 `lsof`，用于检查端口占用。
+
 ## 第一次启动
 
 在 PowerShell 中执行：
@@ -29,10 +36,20 @@ Set-Location <CIInfrastructure目录>
 .\scripts\healthcheck_jenkins.ps1
 ```
 
+macOS 使用 PowerShell 7：
+
+```bash
+pwsh ./scripts/create_pipeline_jobs.ps1 -ConfigPath ./config/jobs.json -DryRun
+pwsh ./scripts/create_pipeline_jobs.ps1 -ConfigPath ./config/jobs.json
+pwsh ./scripts/start_jenkins.ps1
+pwsh ./scripts/healthcheck_jenkins.ps1
+```
+
 默认配置：
 
 ```text
-JENKINS_HOME=%USERPROFILE%\.jenkins-infra
+Windows: %USERPROFILE%\.jenkins-infra
+macOS: $HOME/.jenkins-infra
 端口=8080
 监听地址=127.0.0.1
 ```
@@ -51,7 +68,13 @@ Job 使用 `Pipeline script from SCM` 模式。每个 Job 的 SVN 地址和 Jenk
 ## 停止 Jenkins
 
 ```powershell
-.scripts\stop_jenkins.ps1
+.\scripts\stop_jenkins.ps1
+```
+
+macOS：
+
+```bash
+pwsh ./scripts/stop_jenkins.ps1
 ```
 
 ## Job 配置

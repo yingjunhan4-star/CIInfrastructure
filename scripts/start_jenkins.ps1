@@ -1,5 +1,5 @@
 param(
-    [string]$JenkinsHome = (Join-Path $env:USERPROFILE ".jenkins-infra"),
+    [string]$JenkinsHome = (Join-Path ([Environment]::GetFolderPath('UserProfile')) ".jenkins-infra"),
     [string]$JenkinsWar = "",
     [string]$JenkinsVersion = "2.541.3",
     [ValidateRange(1, 65535)]
@@ -10,28 +10,28 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Test-IsWindows {
+    return $env:OS -eq "Windows_NT"
+}
+
 function Download-File {
     param([string]$Url, [string]$OutFile)
 
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $OutFile) | Out-Null
-    & curl.exe -L --fail --retry 3 --output $OutFile $Url
-    if ($LASTEXITCODE -ne 0) {
-        throw "Download failed: $Url"
-    }
+    Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $OutFile
 }
 
 function Get-PluginManagerUrl {
     $fallback = "https://github.com/jenkinsci/plugin-installation-manager-tool/releases/download/2.15.0/jenkins-plugin-manager-2.15.0.jar"
     try {
-        $json = & curl.exe -L --fail -H "User-Agent: jenkins-infra" "https://api.github.com/repos/jenkinsci/plugin-installation-manager-tool/releases/latest" 2>$null
-        if ($LASTEXITCODE -eq 0 -and $json) {
-            $release = ($json -join "`n") | ConvertFrom-Json
-            $asset = $release.assets | Where-Object {
-                $_.name -like "jenkins-plugin-manager-*.jar" -and $_.name -notlike "*.sha256"
-            } | Select-Object -First 1
-            if ($asset.browser_download_url) {
-                return $asset.browser_download_url
-            }
+        $release = Invoke-RestMethod `
+            -Headers @{ "User-Agent" = "CIInfrastructure" } `
+            -Uri "https://api.github.com/repos/jenkinsci/plugin-installation-manager-tool/releases/latest"
+        $asset = $release.assets | Where-Object {
+            $_.name -like "jenkins-plugin-manager-*.jar" -and $_.name -notlike "*.sha256"
+        } | Select-Object -First 1
+        if ($asset.browser_download_url) {
+            return $asset.browser_download_url
         }
     }
     catch {
@@ -57,6 +57,7 @@ function Ensure-PipelinePlugins {
         "ssh-agent"
     )
 
+    New-Item -ItemType Directory -Force -Path $pluginsPath | Out-Null
     if (($required | Where-Object { -not (Test-PluginInstalled -PluginsPath $pluginsPath -PluginName $_) }).Count -eq 0) {
         return
     }
@@ -83,22 +84,46 @@ function Ensure-PipelinePlugins {
 function Get-ListeningProcessId {
     param([int]$TcpPort)
 
-    $connection = Get-NetTCPConnection -LocalPort $TcpPort -State Listen -ErrorAction SilentlyContinue |
+    if (Test-IsWindows) {
+        $connection = Get-NetTCPConnection -LocalPort $TcpPort -State Listen -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+        if ($connection) {
+            return [int]$connection.OwningProcess
+        }
+        return 0
+    }
+
+    $lsof = Get-Command lsof -ErrorAction SilentlyContinue
+    if (-not $lsof) {
+        throw "lsof is required on macOS/Linux to inspect listening ports."
+    }
+    $pidText = & $lsof.Source -nP -iTCP:$TcpPort -sTCP:LISTEN -t 2>$null |
         Select-Object -First 1
-    if ($connection) {
-        return [int]$connection.OwningProcess
+    if ($pidText -and $pidText.ToString().Trim() -match '^[0-9]+$') {
+        return [int]$pidText
     }
     return 0
+}
+
+function Get-ProcessCommandLine {
+    param([int]$ProcessId)
+
+    if (Test-IsWindows) {
+        $info = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
+        if ($info -and $info.CommandLine) {
+            return $info.CommandLine
+        }
+        return ""
+    }
+
+    $psCommand = Get-Command ps -ErrorAction Stop
+    return ((& $psCommand.Source -p $ProcessId -o command= 2>$null) -join " ").Trim()
 }
 
 function Test-ManagedProcess {
     param([int]$ProcessId, [string]$HomePath, [string]$WarPath)
 
-    $info = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
-    if (-not $info) {
-        return $false
-    }
-    $commandLine = if ($null -ne $info.CommandLine) { $info.CommandLine } else { "" }
+    $commandLine = Get-ProcessCommandLine -ProcessId $ProcessId
     return $commandLine.Contains($HomePath) -or $commandLine.Contains($WarPath)
 }
 
@@ -115,7 +140,7 @@ function Wait-ForJenkins {
             Start-Sleep -Seconds 2
         }
     }
-    throw "Jenkins did not become ready on port $TcpPort. Check $JenkinsHome\logs\jenkins.err.log."
+    throw "Jenkins did not become ready on port $TcpPort. Check $(Join-Path $JenkinsHome 'logs/jenkins.err.log')."
 }
 
 if ([string]::IsNullOrWhiteSpace($JenkinsWar)) {
@@ -152,9 +177,19 @@ $arguments = @(
     "--httpPort=$Port",
     "--httpListenAddress=$ListenAddress"
 )
+$startParameters = @{
+    FilePath = $java
+    ArgumentList = $arguments
+    WorkingDirectory = $JenkinsHome
+    RedirectStandardOutput = $stdout
+    RedirectStandardError = $stderr
+    PassThru = $true
+}
+if (Test-IsWindows) {
+    $startParameters.WindowStyle = "Hidden"
+}
 
-$process = Start-Process -FilePath $java -ArgumentList $arguments -WorkingDirectory $JenkinsHome `
-    -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru -WindowStyle Hidden
+$process = Start-Process @startParameters
 Set-Content -LiteralPath (Join-Path $JenkinsHome "jenkins.pid") -Value $process.Id -Encoding ASCII
 
 try {

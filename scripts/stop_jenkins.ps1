@@ -1,5 +1,6 @@
 param(
-    [string]$JenkinsHome = (Join-Path $env:USERPROFILE ".jenkins-infra")
+    [string]$JenkinsHome = (Join-Path ([Environment]::GetFolderPath('UserProfile')) ".jenkins-infra"),
+    [string]$JenkinsWar = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -9,11 +10,24 @@ if (-not (Test-Path -LiteralPath $pidPath -PathType Leaf)) {
     exit 0
 }
 
+if ([string]::IsNullOrWhiteSpace($JenkinsWar)) {
+    $JenkinsWar = Get-ChildItem -LiteralPath $JenkinsHome -Filter "jenkins-*.war" -File -ErrorAction SilentlyContinue |
+        Select-Object -First 1 -ExpandProperty FullName
+}
+
 $processId = [int](Get-Content -LiteralPath $pidPath -Raw).Trim()
-$processInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $processId" -ErrorAction SilentlyContinue
+$processInfo = Get-Process -Id $processId -ErrorAction SilentlyContinue
 if ($processInfo) {
-    $commandLine = if ($null -ne $processInfo.CommandLine) { $processInfo.CommandLine } else { "" }
-    if (-not $commandLine.Contains($JenkinsHome)) {
+    if ($env:OS -eq "Windows_NT") {
+        $cim = Get-CimInstance Win32_Process -Filter "ProcessId = $processId" -ErrorAction SilentlyContinue
+        $commandLine = if ($cim -and $cim.CommandLine) { $cim.CommandLine } else { "" }
+    }
+    else {
+        $psCommand = Get-Command ps -ErrorAction Stop
+        $commandLine = ((& $psCommand.Source -p $processId -o command= 2>$null) -join " ").Trim()
+    }
+
+    if ($JenkinsWar -and -not $commandLine.Contains($JenkinsHome) -and -not $commandLine.Contains($JenkinsWar)) {
         throw "PID $processId does not belong to JenkinsHome $JenkinsHome. Refusing to stop it."
     }
     Stop-Process -Id $processId -ErrorAction Stop
