@@ -1,7 +1,8 @@
 param(
     [string]$JenkinsHome = (Join-Path (Split-Path -Parent $PSScriptRoot) ".jenkins"),
     [string]$ConfigPath = (Join-Path $PSScriptRoot "../../config/jobs.json"),
-    [switch]$DryRun
+    [switch]$DryRun,
+    [switch]$ResetJobConfig
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,6 +22,45 @@ function Assert-JobValue {
         throw "Job is missing '$PropertyName'."
     }
     return $value.Trim()
+}
+
+function Convert-XmlForPowerShell {
+    param([string]$Content)
+
+    $xmlDeclarationPattern = '^\s*<\?xml version=[''\"]1\.1[''\"]'
+    return $Content -replace $xmlDeclarationPattern, "<?xml version='1.0'"
+}
+
+function Merge-ExistingJobConfig {
+    param(
+        [string]$GeneratedXml,
+        [string]$ExistingPath
+    )
+
+    try {
+        $existingContent = Convert-XmlForPowerShell -Content (Get-Content -LiteralPath $ExistingPath -Raw -Encoding UTF8)
+        $existingDocument = [xml]$existingContent
+        $generatedDocument = [xml](Convert-XmlForPowerShell -Content $GeneratedXml)
+        $generatedDefinition = $generatedDocument.DocumentElement.SelectSingleNode("definition")
+        $existingDefinition = $existingDocument.DocumentElement.SelectSingleNode("definition")
+
+        if ($null -eq $generatedDefinition) {
+            throw "Generated Job config has no definition node."
+        }
+
+        $importedDefinition = $existingDocument.ImportNode($generatedDefinition, $true)
+        if ($existingDefinition) {
+            $existingDocument.DocumentElement.ReplaceChild($importedDefinition, $existingDefinition) | Out-Null
+        }
+        else {
+            $existingDocument.DocumentElement.AppendChild($importedDefinition) | Out-Null
+        }
+
+        return "<?xml version='1.0' encoding='UTF-8'?>`r`n$($existingDocument.DocumentElement.OuterXml)"
+    }
+    catch {
+        throw "Unable to preserve existing Jenkins Job config '$ExistingPath': $($_.Exception.Message)"
+    }
 }
 
 if (-not (Test-Path -LiteralPath $ConfigPath -PathType Leaf)) {
@@ -46,7 +86,7 @@ foreach ($job in $jobs) {
 <?xml version='1.0' encoding='UTF-8'?>
 <flow-definition plugin="workflow-job">
   <actions/>
-  <description>Managed by jenkins-infra. Do not edit generated config.xml manually.</description>
+  <description>SCM managed by jenkins-infra. Existing Job settings are preserved unless -ResetJobConfig is used.</description>
   <keepDependencies>false</keepDependencies>
   <properties/>
   <definition class="org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition" plugin="workflow-cps">
@@ -76,13 +116,25 @@ foreach ($job in $jobs) {
     $configPathOut = Join-Path $jobPath "config.xml"
     if ($DryRun) {
         Write-Host "[DryRun] Would write $configPathOut"
-        Write-Host "[DryRun] $name <= $repositoryUrl / $scriptPath"
+        if ((Test-Path -LiteralPath $configPathOut -PathType Leaf) -and -not $ResetJobConfig) {
+            Write-Host "[DryRun] $name <= $repositoryUrl / $scriptPath (existing Job settings preserved)"
+        }
+        else {
+            Write-Host "[DryRun] $name <= $repositoryUrl / $scriptPath"
+        }
         continue
     }
 
     New-Item -ItemType Directory -Force -Path $jobPath | Out-Null
-    Set-Content -LiteralPath $configPathOut -Value $xml -Encoding UTF8
-    Write-Host "Created or updated Pipeline Job: $name"
+    $configToWrite = $xml
+    if ((Test-Path -LiteralPath $configPathOut -PathType Leaf) -and -not $ResetJobConfig) {
+        $configToWrite = Merge-ExistingJobConfig -GeneratedXml $xml -ExistingPath $configPathOut
+        Write-Host "Updated Pipeline Job SCM while preserving existing settings: $name"
+    }
+    else {
+        Write-Host "Created or reset Pipeline Job: $name"
+    }
+    Set-Content -LiteralPath $configPathOut -Value $configToWrite -Encoding UTF8
 }
 
 if ($jobs.Count -eq 0) {
