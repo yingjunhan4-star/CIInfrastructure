@@ -1,6 +1,6 @@
 param(
-    [string]$JenkinsHome = (Join-Path $env:USERPROFILE ".jenkins-infra"),
-    [string]$ConfigPath = (Join-Path $PSScriptRoot "../config/jobs.json"),
+    [string]$JenkinsHome = $PSScriptRoot,
+    [string]$ConfigPath = (Join-Path $PSScriptRoot "../../config/jobs.json"),
     [switch]$DryRun
 )
 

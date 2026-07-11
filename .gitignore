@@ -6,6 +6,13 @@ jenkins-home/
 *.log
 logs/
 
+# Jenkins runtime state when JENKINS_HOME defaults to the script directory
+scripts/windows/*
+!scripts/windows/*.bat
+!scripts/windows/*.ps1
+scripts/macos/*
+!scripts/macos/*.sh
+
 # Local/editor files
 .DS_Store
 Thumbs.db

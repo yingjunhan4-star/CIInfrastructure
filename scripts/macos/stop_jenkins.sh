@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-JENKINS_HOME="${JENKINS_HOME:-$HOME/.jenkins-infra}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+JENKINS_HOME="${JENKINS_HOME:-$SCRIPT_DIR}"
 JENKINS_WAR="${JENKINS_WAR:-}"
 PID_FILE="$JENKINS_HOME/jenkins.pid"
 

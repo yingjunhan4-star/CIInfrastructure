@@ -105,13 +105,13 @@ chmod +x scripts/macos/*.sh
 默认配置：
 
 ```text
-Windows JENKINS_HOME=%USERPROFILE%\.jenkins-infra
-macOS JENKINS_HOME=$HOME/.jenkins-infra
+Windows JENKINS_HOME=<CIInfrastructure目录>\scripts\windows
+macOS JENKINS_HOME=<CIInfrastructure目录>/scripts/macos
 端口=8080
 监听地址=127.0.0.1
 ```
 
-Jenkins Home 可以修改，但必须在启动和停止时使用同一个目录。Windows 示例：
+默认 Jenkins Home 是当前运行脚本所在目录，也可以修改，但必须在启动和停止时使用同一个目录。Windows 示例：
 
 ```bat
 scripts\windows\start_jenkins.bat -JenkinsHome D:\JenkinsHome

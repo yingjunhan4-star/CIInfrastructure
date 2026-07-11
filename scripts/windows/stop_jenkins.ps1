@@ -1,5 +1,5 @@
 param(
-    [string]$JenkinsHome = (Join-Path ([Environment]::GetFolderPath('UserProfile')) ".jenkins-infra"),
+    [string]$JenkinsHome = $PSScriptRoot,
     [string]$JenkinsWar = ""
 )
 
