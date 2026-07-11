@@ -18,11 +18,17 @@ jenkins-infra/
 │   ├── healthcheck_jenkins.ps1
 │   ├── create_pipeline_jobs.bat
 │   ├── create_pipeline_jobs.ps1
+│   ├── check_prerequisites.bat
+│   ├── check_prerequisites.ps1
+│   ├── install_prerequisites.bat
+│   ├── install_prerequisites.ps1
 │   └── macos/
 │       ├── start_jenkins.sh
 │       ├── stop_jenkins.sh
 │       ├── healthcheck_jenkins.sh
-│       └── create_pipeline_jobs.sh
+│       ├── create_pipeline_jobs.sh
+│       ├── check_prerequisites.sh
+│       └── install_prerequisites.sh
 └── README.md
 ```
 
@@ -58,6 +64,15 @@ scripts\start_jenkins.bat
 scripts\healthcheck_jenkins.bat
 ```
 
+检查和安装 Java 17：
+
+```bat
+scripts\check_prerequisites.bat
+scripts\install_prerequisites.bat
+```
+
+安装脚本默认询问用户；也可以显式使用 `install_prerequisites.bat -Java` 或 `-WhatIf`。
+
 停止 Jenkins：
 
 ```bat
@@ -69,12 +84,16 @@ scripts\stop_jenkins.bat
 macOS 直接使用原生 Shell，不依赖 PowerShell：
 
 ```bash
+./scripts/macos/check_prerequisites.sh
+./scripts/macos/install_prerequisites.sh
 chmod +x scripts/macos/*.sh
 ./scripts/macos/create_pipeline_jobs.sh --config ./config/jobs.json --dry-run
 ./scripts/macos/create_pipeline_jobs.sh --config ./config/jobs.json
 ./scripts/macos/start_jenkins.sh
 ./scripts/macos/healthcheck_jenkins.sh
 ```
+
+安装脚本默认逐项询问；也可以使用 `./scripts/macos/install_prerequisites.sh --all` 或先加 `--dry-run` 预览命令。
 
 停止 Jenkins：
 
