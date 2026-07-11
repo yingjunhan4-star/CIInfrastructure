@@ -10,18 +10,19 @@ jenkins-infra/
 │   ├── jobs.json              本地配置，不提交
 │   └── jobs.example.json      公共示例
 ├── scripts/
-│   ├── start_jenkins.bat
-│   ├── start_jenkins.ps1
-│   ├── stop_jenkins.bat
-│   ├── stop_jenkins.ps1
-│   ├── healthcheck_jenkins.bat
-│   ├── healthcheck_jenkins.ps1
-│   ├── create_pipeline_jobs.bat
-│   ├── create_pipeline_jobs.ps1
-│   ├── check_prerequisites.bat
-│   ├── check_prerequisites.ps1
-│   ├── install_prerequisites.bat
-│   ├── install_prerequisites.ps1
+│   ├── windows/
+│   │   ├── start_jenkins.bat
+│   │   ├── start_jenkins.ps1
+│   │   ├── stop_jenkins.bat
+│   │   ├── stop_jenkins.ps1
+│   │   ├── healthcheck_jenkins.bat
+│   │   ├── healthcheck_jenkins.ps1
+│   │   ├── create_pipeline_jobs.bat
+│   │   ├── create_pipeline_jobs.ps1
+│   │   ├── check_prerequisites.bat
+│   │   ├── check_prerequisites.ps1
+│   │   ├── install_prerequisites.bat
+│   │   └── install_prerequisites.ps1
 │   └── macos/
 │       ├── start_jenkins.sh
 │       ├── stop_jenkins.sh
@@ -58,17 +59,17 @@ brew install openjdk@17 jq
 Windows 入口使用 `.bat`，由 `.bat` 转调对应的 PowerShell 脚本：
 
 ```bat
-scripts\create_pipeline_jobs.bat -ConfigPath config\jobs.json -DryRun
-scripts\create_pipeline_jobs.bat -ConfigPath config\jobs.json
-scripts\start_jenkins.bat
-scripts\healthcheck_jenkins.bat
+scripts\windows\create_pipeline_jobs.bat -ConfigPath config\jobs.json -DryRun
+scripts\windows\create_pipeline_jobs.bat -ConfigPath config\jobs.json
+scripts\windows\start_jenkins.bat
+scripts\windows\healthcheck_jenkins.bat
 ```
 
 检查和安装 Java 17：
 
 ```bat
-scripts\check_prerequisites.bat
-scripts\install_prerequisites.bat
+scripts\windows\check_prerequisites.bat
+scripts\windows\install_prerequisites.bat
 ```
 
 安装脚本默认询问用户；也可以显式使用 `install_prerequisites.bat -Java` 或 `-WhatIf`。
@@ -76,7 +77,7 @@ scripts\install_prerequisites.bat
 停止 Jenkins：
 
 ```bat
-scripts\stop_jenkins.bat
+scripts\windows\stop_jenkins.bat
 ```
 
 ## macOS 使用
