@@ -1,0 +1,13 @@
+# Local Jenkins configuration and runtime state
+config/jobs.json
+jenkins-home/
+*.war
+*.pid
+*.log
+logs/
+
+# Local/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
