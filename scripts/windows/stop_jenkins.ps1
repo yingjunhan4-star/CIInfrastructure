@@ -1,5 +1,5 @@
 param(
-    [string]$JenkinsHome = $PSScriptRoot,
+    [string]$JenkinsHome = (Join-Path (Split-Path -Parent $PSScriptRoot) ".jenkins"),
     [string]$JenkinsWar = ""
 )
 

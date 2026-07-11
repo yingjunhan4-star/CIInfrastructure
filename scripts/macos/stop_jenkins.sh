@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-JENKINS_HOME="${JENKINS_HOME:-$SCRIPT_DIR}"
+JENKINS_HOME="${JENKINS_HOME:-$(dirname "$SCRIPT_DIR")/.jenkins}"
 JENKINS_WAR="${JENKINS_WAR:-}"
 PID_FILE="$JENKINS_HOME/jenkins.pid"
 

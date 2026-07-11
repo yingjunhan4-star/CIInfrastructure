@@ -6,7 +6,8 @@ jenkins-home/
 *.log
 logs/
 
-# Jenkins runtime state when JENKINS_HOME defaults to the script directory
+# Jenkins runtime state when JENKINS_HOME defaults to scripts/.jenkins
+scripts/.jenkins/
 scripts/windows/*
 !scripts/windows/*.bat
 !scripts/windows/*.ps1

@@ -1,5 +1,5 @@
 param(
-    [string]$JenkinsHome = $PSScriptRoot,
+    [string]$JenkinsHome = (Join-Path (Split-Path -Parent $PSScriptRoot) ".jenkins"),
     [string]$ConfigPath = (Join-Path $PSScriptRoot "../../config/jobs.json"),
     [switch]$DryRun
 )

@@ -1,5 +1,5 @@
 param(
-    [string]$JenkinsHome = $PSScriptRoot,
+    [string]$JenkinsHome = (Join-Path (Split-Path -Parent $PSScriptRoot) ".jenkins"),
     [string]$JenkinsWar = "",
     [string]$JenkinsVersion = "2.541.3",
     [ValidateRange(1, 65535)]

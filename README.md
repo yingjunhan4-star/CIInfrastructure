@@ -105,8 +105,7 @@ chmod +x scripts/macos/*.sh
 默认配置：
 
 ```text
-Windows JENKINS_HOME=<CIInfrastructure目录>\scripts\windows
-macOS JENKINS_HOME=<CIInfrastructure目录>/scripts/macos
+Windows/macOS JENKINS_HOME=<CIInfrastructure目录>/scripts/.jenkins
 端口=8080
 监听地址=127.0.0.1
 ```
