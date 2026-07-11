@@ -82,7 +82,7 @@ for ((index = 0; index < job_count; index++)); do
       <excludedRegions/>
       <excludedUsers/>
       <excludedCommitMessages/>
-      <workspaceUpdater class="hudson.scm.subversion.UpdateWithCleanUpdater"/>
+      <workspaceUpdater class="hudson.scm.subversion.UpdateWithRevertUpdater"/>
     </scm>
     <scriptPath>$escaped_script</scriptPath>
     <lightweight>true</lightweight>

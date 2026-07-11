@@ -103,7 +103,7 @@ foreach ($job in $jobs) {
       <excludedRegions/>
       <excludedUsers/>
       <excludedCommitMessages/>
-      <workspaceUpdater class="hudson.scm.subversion.UpdateWithCleanUpdater"/>
+      <workspaceUpdater class="hudson.scm.subversion.UpdateWithRevertUpdater"/>
     </scm>
     <scriptPath>$(Escape-Xml $scriptPath)</scriptPath>
     <lightweight>true</lightweight>
