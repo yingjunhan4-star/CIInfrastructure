@@ -110,7 +110,7 @@ Windows/macOS JENKINS_HOME=<CIInfrastructure目录>/scripts/.jenkins
 监听地址=127.0.0.1
 ```
 
-默认 Jenkins Home 是当前运行脚本所在目录，也可以修改，但必须在启动和停止时使用同一个目录。Windows 示例：
+默认 Jenkins Home 是 `scripts/.jenkins`，也可以修改，但必须在启动和停止时使用同一个目录。Windows 示例：
 
 ```bat
 scripts\windows\start_jenkins.bat -JenkinsHome D:\JenkinsHome
@@ -125,6 +125,45 @@ JENKINS_HOME="$HOME/JenkinsHome" ./scripts/macos/stop_jenkins.sh
 ```
 
 建议将 Jenkins Home 放在项目仓库之外，并确保运行账号对该目录有读写权限。
+
+## Jenkins 管理员和用户
+
+当前启动脚本默认使用 `-Djenkins.install.runSetupWizard=false`，因此首次启动不会自动创建管理员，实例初始状态为不需要登录。首次配置管理员时，只能在本机访问 Jenkins 的情况下执行以下操作：
+
+1. 启动 Jenkins，打开 `http://127.0.0.1:8080/script`。
+2. 将下面脚本中的用户名和密码替换为实际值后执行。密码只在本次操作中输入，不要提交到 Git、README、Jenkinsfile 或启动脚本。
+
+```groovy
+import hudson.security.FullControlOnceLoggedInAuthorizationStrategy
+import hudson.security.HudsonPrivateSecurityRealm
+import jenkins.model.Jenkins
+
+def jenkins = Jenkins.get()
+def username = "admin"
+def password = "请替换为强密码"
+
+def realm = new HudsonPrivateSecurityRealm(false)
+jenkins.setSecurityRealm(realm)
+realm.createAccount(username, password)
+
+def authorization = new FullControlOnceLoggedInAuthorizationStrategy()
+authorization.setAllowAnonymousRead(false)
+jenkins.setAuthorizationStrategy(authorization)
+jenkins.save()
+
+println "管理员创建完成，请重新登录。"
+```
+
+3. 打开 `http://127.0.0.1:8080/login`，使用刚创建的账号登录。
+4. 添加其他用户：`Manage Jenkins` → `Users` → `Create User`。
+
+权限选择建议：
+
+- 所有使用者都是管理员时，可使用 `Logged-in users can do anything`，但不建议用于多人共享实例。
+- 有普通用户时，使用 Matrix Authorization Strategy 或 Role-based Authorization Strategy，只给管理员 `Overall/Administer`，普通用户按需授予 `Overall/Read`、`Job/Read`、`Job/Build`、`Job/Workspace` 等权限。
+- Jenkins 内置用户数据库适合小型内部 CI；如需统一账号，应改用 LDAP、Active Directory 或其他外部认证插件。
+
+启用认证后，`/script` 也需要管理员权限。Script Console 具备完整系统权限，只应由可信管理员使用；执行前建议备份 `JENKINS_HOME`。Jenkins 的认证和授权由两部分组成：Security Realm 负责用户认证，Authorization Strategy 负责权限分配，详见 [Jenkins 安全配置文档](https://www.jenkins.io/doc/book/security/managing-security/) 和 [用户管理文档](https://www.jenkins.io/doc/book/managing/users/)。
 
 ## Job 配置
 
