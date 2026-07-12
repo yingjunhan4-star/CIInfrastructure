@@ -1,190 +1,51 @@
 # CI Infrastructure
 
-本目录维护跨项目 Jenkins 实例的启停、健康检查和 Pipeline Job 配置，不依赖任何 Unity 工程。
+本仓库只维护共享 Jenkins 生命周期与一种 Job 创建机制：项目保留自己的模板，CIInfrastructure 只创建不存在的 Pipeline Job。创建完成后，Job 参数和默认值完全由 Jenkins UI 维护；创建器绝不更新、合并或重置已有 Job。
 
 ## 目录
 
 ```text
-jenkins-infra/
-├── config/
-│   ├── jobs.json              本地配置，不提交
-│   └── jobs.example.json      公共示例
-├── scripts/
-│   ├── windows/
-│   │   ├── start_jenkins.bat
-│   │   ├── start_jenkins.ps1
-│   │   ├── stop_jenkins.bat
-│   │   ├── stop_jenkins.ps1
-│   │   ├── healthcheck_jenkins.bat
-│   │   ├── healthcheck_jenkins.ps1
-│   │   ├── create_pipeline_jobs.bat
-│   │   ├── create_pipeline_jobs.ps1
-│   │   ├── check_prerequisites.bat
-│   │   ├── check_prerequisites.ps1
-│   │   ├── install_prerequisites.bat
-│   │   └── install_prerequisites.ps1
-│   └── macos/
-│       ├── start_jenkins.sh
-│       ├── stop_jenkins.sh
-│       ├── healthcheck_jenkins.sh
-│       ├── create_pipeline_jobs.sh
-│       ├── check_prerequisites.sh
-│       └── install_prerequisites.sh
-└── README.md
+scripts/
+├── windows/ create_project_job.ps1/.bat、start/stop/healthcheck
+└── macos/   create_project_job.sh、start/stop/healthcheck
 ```
 
-## 前置条件
+`JENKINS_HOME` 默认是 `scripts/.jenkins`，端口 `8080`，监听地址 `127.0.0.1`。启动、停止和创建 Job 时必须使用同一个 Jenkins Home。
+
+## 项目模板
+
+项目在自身仓库维护模板，例如：
+
+```text
+ci/jenkins/jobs/package-job.json
+```
+
+模板定义 Job 名称、SVN SCM、Jenkinsfile 路径，以及首次参数的类型和默认值；不得包含 Token、密码或证书。
+
+模板需满足：`jobName`、`scm.repositoryUrl`、`scm.credentialsId`、`scm.scriptPath` 均非空；参数类型仅支持 `string`、`boolean`、`choice`。项目应在调用创建器前自行校验模板与 Jenkinsfile 的 `params.*` 读取契约。
+
+## 创建新 Job
 
 Windows：
 
-- Java 17；
-- Windows PowerShell；
-- Jenkins 节点所需的 SVN、Unity、Node.js 等工具由各项目 Job 自行配置。
+```bat
+scripts\windows\create_project_job.bat -TemplatePath G:\Project\ci\jenkins\jobs\package-job.json -DryRun
+scripts\windows\create_project_job.bat -TemplatePath G:\Project\ci\jenkins\jobs\package-job.json
+```
+
+Windows 创建器默认使用 `<CIInfrastructure>\scripts\.jenkins`，无需传 `-JenkinsHome`；仅在自定义 Jenkins Home 时显式传入该参数。
 
 macOS：
 
-- Java 17；
-- Bash/Zsh；
-- `curl`、`lsof`、`jq`；
-- Jenkins 节点所需的 SVN、Unity、Node.js 等工具由各项目 Job 自行配置。
-
-macOS 可使用 Homebrew 安装缺少的工具：
-
 ```bash
-brew install openjdk@17 jq
+./scripts/macos/create_project_job.sh --template /path/to/project/ci/jenkins/jobs/package-job.json --dry-run
+./scripts/macos/create_project_job.sh --template /path/to/project/ci/jenkins/jobs/package-job.json
 ```
 
-## Windows 使用
+创建后重启 Jenkins 加载 Job。若同名 Job 已存在，工具会失败且不会修改该 Job；请在 Jenkins UI 的 Job Configure 页面维护参数。
 
-Windows 入口使用 `.bat`，由 `.bat` 转调对应的 PowerShell 脚本：
+创建器不读取项目构建工具、不定义环境或节点 OS 策略，也不执行打包。项目模板与 Jenkins UI 分别拥有“首次参数”和“创建后的参数”两个阶段的配置权。
 
-```bat
-scripts\windows\create_pipeline_jobs.bat -ConfigPath config\jobs.json -DryRun
-scripts\windows\create_pipeline_jobs.bat -ConfigPath config\jobs.json
-scripts\windows\create_release_jobs.bat -ProfilePath config\release-job-profiles.json -DryRun
-scripts\windows\start_jenkins.bat
-scripts\windows\healthcheck_jenkins.bat
-```
+## Jenkins 生命周期
 
-检查和安装 Java 17：
-
-```bat
-scripts\windows\check_prerequisites.bat
-scripts\windows\install_prerequisites.bat
-```
-
-安装脚本默认询问用户；也可以显式使用 `install_prerequisites.bat -Java` 或 `-WhatIf`。
-
-停止 Jenkins：
-
-```bat
-scripts\windows\stop_jenkins.bat
-```
-
-## macOS 使用
-
-macOS 直接使用原生 Shell，不依赖 PowerShell：
-
-```bash
-./scripts/macos/check_prerequisites.sh
-./scripts/macos/install_prerequisites.sh
-chmod +x scripts/macos/*.sh
-./scripts/macos/create_pipeline_jobs.sh --config ./config/jobs.json --dry-run
-./scripts/macos/create_pipeline_jobs.sh --config ./config/jobs.json
-./scripts/macos/start_jenkins.sh
-./scripts/macos/healthcheck_jenkins.sh
-```
-
-安装脚本默认逐项询问；也可以使用 `./scripts/macos/install_prerequisites.sh --all` 或先加 `--dry-run` 预览命令。
-
-停止 Jenkins：
-
-```bash
-./scripts/macos/stop_jenkins.sh
-```
-
-默认配置：
-
-```text
-Windows/macOS JENKINS_HOME=<CIInfrastructure目录>/scripts/.jenkins
-端口=8080
-监听地址=127.0.0.1
-```
-
-默认 Jenkins Home 是 `scripts/.jenkins`，也可以修改，但必须在启动和停止时使用同一个目录。Windows 示例：
-
-```bat
-scripts\windows\start_jenkins.bat -JenkinsHome D:\JenkinsHome
-scripts\windows\stop_jenkins.bat -JenkinsHome D:\JenkinsHome
-```
-
-macOS 示例：
-
-```bash
-./scripts/macos/start_jenkins.sh --jenkins-home "$HOME/JenkinsHome"
-JENKINS_HOME="$HOME/JenkinsHome" ./scripts/macos/stop_jenkins.sh
-```
-
-建议将 Jenkins Home 放在项目仓库之外，并确保运行账号对该目录有读写权限。
-
-## Jenkins 管理员和用户
-
-当前启动脚本默认使用 `-Djenkins.install.runSetupWizard=false`，因此首次启动不会自动创建管理员，实例初始状态为不需要登录。首次配置管理员时，只能在本机访问 Jenkins 的情况下执行以下操作：
-
-1. 启动 Jenkins，打开 `http://127.0.0.1:8080/script`。
-2. 将下面脚本中的用户名和密码替换为实际值后执行。密码只在本次操作中输入，不要提交到 Git、README、Jenkinsfile 或启动脚本。
-
-```groovy
-import hudson.security.FullControlOnceLoggedInAuthorizationStrategy
-import hudson.security.HudsonPrivateSecurityRealm
-import jenkins.model.Jenkins
-
-def jenkins = Jenkins.get()
-def username = "admin"
-def password = "请替换为强密码"
-
-def realm = new HudsonPrivateSecurityRealm(false)
-jenkins.setSecurityRealm(realm)
-realm.createAccount(username, password)
-
-def authorization = new FullControlOnceLoggedInAuthorizationStrategy()
-authorization.setAllowAnonymousRead(false)
-jenkins.setAuthorizationStrategy(authorization)
-jenkins.save()
-
-println "管理员创建完成，请重新登录。"
-```
-
-3. 打开 `http://127.0.0.1:8080/login`，使用刚创建的账号登录。
-4. 添加其他用户：`Manage Jenkins` → `Users` → `Create User`。
-
-权限选择建议：
-
-- 所有使用者都是管理员时，可使用 `Logged-in users can do anything`，但不建议用于多人共享实例。
-- 有普通用户时，使用 Matrix Authorization Strategy 或 Role-based Authorization Strategy，只给管理员 `Overall/Administer`，普通用户按需授予 `Overall/Read`、`Job/Read`、`Job/Build`、`Job/Workspace` 等权限。
-- Jenkins 内置用户数据库适合小型内部 CI；如需统一账号，应改用 LDAP、Active Directory 或其他外部认证插件。
-
-启用认证后，`/script` 也需要管理员权限。Script Console 具备完整系统权限，只应由可信管理员使用；执行前建议备份 `JENKINS_HOME`。Jenkins 的认证和授权由两部分组成：Security Realm 负责用户认证，Authorization Strategy 负责权限分配，详见 [Jenkins 安全配置文档](https://www.jenkins.io/doc/book/security/managing-security/) 和 [用户管理文档](https://www.jenkins.io/doc/book/managing/users/)。
-
-## Job 配置
-
-复制 `config/jobs.example.json` 的条目到本地 `config/jobs.json`，填写实际 SVN 地址和 Jenkins 凭据 ID。`config/jobs.json` 已被 Git 忽略，凭据本身只在 Jenkins Credentials 中维护，不写入仓库。
-
-Job 使用 `Pipeline script from SCM` 模式。每个 Job 的 SVN 地址和 Jenkinsfile 路径由配置文件指定，Jenkins 自动分配工作区，不使用开发人员工作副本，也不设置 `customWorkspace`。
-
-### Release Job 环境模板
-
-`scripts\windows\create_release_jobs.bat` 用于创建或更新 Release Job。首次使用时复制 `config\release-job-profiles.example.json` 为本地忽略的 `config\release-job-profiles.json`，然后填写 Job 的 SVN 信息、固定 agent label、环境名称和必要的环境覆盖值。
-
-```bat
-copy config\release-job-profiles.example.json config\release-job-profiles.json
-scripts\windows\create_release_jobs.bat -ProfilePath config\release-job-profiles.json -DryRun
-```
-
-模板分为通用参数、`dev` / `pre-online` / `online` 环境默认值，以及单个 Job 的 `parameterOverrides`。新 Job 会得到完整参数集；已有 Job 仅补充缺失参数，已在 Jenkins UI 修改过的参数类型、选项和默认值不会被覆盖。`pre-online` 和 `online` 模板要求在对应 Job 的 `parameterOverrides` 中显式填写 `GAMEADMIN_URL` 和 `CDN_NAME`，防止误用开发环境默认值。
-
-该脚本没有 `-ResetJobConfig` 参数，也不保存 Token、`UNITY_EXE`、Python 或 PowerShell 路径。Token 继续使用 Jenkins Credentials，工具路径继续配置在目标 Agent 的环境变量中。执行真实写入前，按本 README 的既有要求先停止 Jenkins、运行脚本，再启动 Jenkins；`-DryRun` 不写入任何文件。
-
-首次启动前先生成 Job 配置。已有 Jenkins 实例更新 Job 配置时，先停止 Jenkins，再生成配置，最后重新启动，确保 Jenkins 加载最新的 `config.xml`。默认更新只修改 Job 的 SCM 地址和 Jenkinsfile 路径，并保留现有参数、默认值、触发器和其他 Job 设置；只有显式传入 `-ResetJobConfig` 才会重置整个 Job 配置。
-
-创建远程 SVN 运维目录或提交前，需要先确认 SVN 管理员提供的仓库 URL 和提交权限。本地目录的生成不等于远程 SVN 仓库已经创建。
+Windows 使用 `start_jenkins.bat`、`stop_jenkins.bat`、`healthcheck_jenkins.bat`；macOS 使用同名 `.sh` 脚本。Jenkins 节点所需的 Unity、SVN、Python 与 PowerShell 等工具由节点统一运行契约提供；节点本地 Unity 路径由 `UNITY_EXE` 配置。
