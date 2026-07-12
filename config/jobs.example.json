@@ -4,7 +4,8 @@
       "name": "TWGameV0_Zero_Release_Pipeline",
       "repositoryUrl": "https://svn.example.com/svn/TWGame/branches/TWGameV0_Zero/client",
       "credentialsId": "client-svn",
-      "scriptPath": "Jenkinsfile"
+      "scriptPath": "Jenkinsfile",
+      "agentLabel": "release-windows"
     },
     {
       "name": "TWGameV0_Zero_GameAdmin_Pipeline",
