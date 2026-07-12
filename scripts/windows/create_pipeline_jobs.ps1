@@ -2,8 +2,7 @@ param(
     [string]$JenkinsHome = (Join-Path (Split-Path -Parent $PSScriptRoot) ".jenkins"),
     [string]$ConfigPath = (Join-Path $PSScriptRoot "../../config/jobs.json"),
     [switch]$DryRun,
-    [switch]$ResetJobConfig,
-    [string]$JobName = ""
+    [switch]$ResetJobConfig
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,97 +22,6 @@ function Assert-JobValue {
         throw "Job is missing '$PropertyName'."
     }
     return $value.Trim()
-}
-
-function Assert-ParameterName {
-    param([object]$Parameter)
-
-    $name = [string]$Parameter.name
-    if ([string]::IsNullOrWhiteSpace($name) -or $name -notmatch '^[A-Z][A-Z0-9_]*$') {
-        throw "Parameter name '$name' is invalid. Use uppercase letters, numbers and underscores."
-    }
-
-    return $name
-}
-
-function ConvertTo-ParameterDefinitionsXml {
-    param([object[]]$Parameters)
-
-    if ($null -eq $Parameters -or $Parameters.Count -eq 0) {
-        return ""
-    }
-
-    $definitions = foreach ($parameter in $Parameters) {
-        $name = Assert-ParameterName -Parameter $parameter
-        $type = ([string]$parameter.type).Trim().ToLowerInvariant()
-        $description = Escape-Xml ([string]$parameter.description)
-        switch ($type) {
-            "string" {
-                $defaultValue = Escape-Xml ([string]$parameter.defaultValue)
-@"
-        <hudson.model.StringParameterDefinition>
-          <name>$name</name>
-          <description>$description</description>
-          <defaultValue>$defaultValue</defaultValue>
-          <trim>false</trim>
-        </hudson.model.StringParameterDefinition>
-"@
-            }
-            "boolean" {
-                $defaultValue = if ([bool]$parameter.defaultValue) { "true" } else { "false" }
-@"
-        <hudson.model.BooleanParameterDefinition>
-          <name>$name</name>
-          <description>$description</description>
-          <defaultValue>$defaultValue</defaultValue>
-        </hudson.model.BooleanParameterDefinition>
-"@
-            }
-            "choice" {
-                $choices = @($parameter.choices)
-                if ($choices.Count -eq 0) {
-                    throw "Choice parameter '$name' must define at least one choice."
-                }
-                $choiceXml = ($choices | ForEach-Object { "              <string>$(Escape-Xml ([string]$_))</string>" }) -join "`r`n"
-@"
-        <hudson.model.ChoiceParameterDefinition>
-          <name>$name</name>
-          <description>$description</description>
-          <choices class="java.util.Arrays`$ArrayList">
-            <a class="string-array">
-$choiceXml
-            </a>
-          </choices>
-        </hudson.model.ChoiceParameterDefinition>
-"@
-            }
-            "password" {
-                if (-not [string]::IsNullOrWhiteSpace([string]$parameter.defaultValue)) {
-                    throw "Password parameter '$name' must not declare a defaultValue. Store secrets only in Jenkins."
-                }
-@"
-        <hudson.model.PasswordParameterDefinition>
-          <name>$name</name>
-          <description>$description</description>
-          <defaultValue/>
-        </hudson.model.PasswordParameterDefinition>
-"@
-            }
-            default {
-                throw "Parameter '$name' has unsupported type '$type'. Supported types: string, boolean, choice, password."
-            }
-        }
-    }
-
-@"
-  <properties>
-    <hudson.model.ParametersDefinitionProperty>
-      <parameterDefinitions>
-$($definitions -join "`r`n")
-      </parameterDefinitions>
-    </hudson.model.ParametersDefinitionProperty>
-  </properties>
-"@
 }
 
 function Convert-XmlForPowerShell {
@@ -161,21 +69,11 @@ if (-not (Test-Path -LiteralPath $ConfigPath -PathType Leaf)) {
 
 $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
 $jobs = @($config.jobs)
-if (-not [string]::IsNullOrWhiteSpace($JobName)) {
-    $jobs = @($jobs | Where-Object { $_.name -eq $JobName })
-    if ($jobs.Count -eq 0) {
-        throw "Job '$JobName' was not found in $ConfigPath."
-    }
-}
 foreach ($job in $jobs) {
     $name = Assert-JobValue -Job $job -PropertyName "name"
     $repositoryUrl = Assert-JobValue -Job $job -PropertyName "repositoryUrl"
     $credentialsId = Assert-JobValue -Job $job -PropertyName "credentialsId"
     $scriptPath = Assert-JobValue -Job $job -PropertyName "scriptPath"
-    $propertiesXml = ConvertTo-ParameterDefinitionsXml -Parameters @($job.parameters | Where-Object { $null -ne $_ })
-    if ([string]::IsNullOrWhiteSpace($propertiesXml)) {
-        $propertiesXml = "  <properties/>"
-    }
 
     if ($name -notmatch '^[A-Za-z0-9_.-]+$') {
         throw "Invalid Job name '$name'. Use letters, numbers, '.', '_' or '-'."
@@ -190,7 +88,7 @@ foreach ($job in $jobs) {
   <actions/>
   <description>SCM managed by jenkins-infra. Existing Job settings are preserved unless -ResetJobConfig is used.</description>
   <keepDependencies>false</keepDependencies>
-$propertiesXml
+  <properties/>
   <definition class="org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition" plugin="workflow-cps">
     <scm class="hudson.scm.SubversionSCM" plugin="subversion">
       <locations>
