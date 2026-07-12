@@ -46,6 +46,8 @@ macOS：
 
 创建器不读取项目构建工具、不定义环境或节点 OS 策略，也不执行打包。项目模板与 Jenkins UI 分别拥有“首次参数”和“创建后的参数”两个阶段的配置权。
 
-## Jenkins 生命周期
+## Jenkins 生命周期与前置检查
 
-Windows 使用 `start_jenkins.bat`、`stop_jenkins.bat`、`healthcheck_jenkins.bat`；macOS 使用同名 `.sh` 脚本。Jenkins 节点所需的 Unity、SVN、Python 与 PowerShell 等工具由节点统一运行契约提供；节点本地 Unity 路径由 `UNITY_EXE` 配置。
+Windows 使用 `start_jenkins.bat`、`stop_jenkins.bat`、`healthcheck_jenkins.bat`；macOS 使用同名 `.sh` 脚本。运行 `check_prerequisites` 时，Controller 层检查 Java 17，节点运行契约检查 Windows 的 `pwsh`、`python`、`svn` 或 macOS 的 `pwsh`、`python3`、`svn`。缺少 PowerShell Core 时，Windows 用 `install_prerequisites.bat -PowerShell`，macOS 用 `install_prerequisites.sh --powershell`；安装后必须重启 Jenkins 进程。`UNITY_EXE` 仍由项目节点配置和 Job 运行时校验。
+
+每个 `[MISSING]` 项后，检查器都会直接打印对应的 `Next`（预览）和 `Install`（实际安装）命令；无需人工记忆 `pwsh`、Python 或 SVN 与安装选项的映射。

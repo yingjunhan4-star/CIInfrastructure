@@ -1,31 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
-required_commands=(java curl lsof jq)
 missing=()
-
-echo "macOS CIInfrastructure prerequisites:"
-for command_name in "${required_commands[@]}"; do
-  if command -v "$command_name" >/dev/null 2>&1; then
-    echo "[OK] $command_name: $(command -v "$command_name")"
-  else
-    echo "[MISSING] $command_name"
-    missing+=("$command_name")
-  fi
-done
-
-if command -v java >/dev/null 2>&1; then
-  java_major="$(java -version 2>&1 | head -n 1 | sed -E 's/.*version "([^"]+)".*/\1/' | awk -F. '{ if ($1 == 1) print $2; else print $1 }')"
-  if [[ "$java_major" =~ ^[0-9]+$ && "$java_major" -ge 17 ]]; then
-    echo "[OK] Java major version: $java_major"
-  else
-    echo "[MISSING] Java 17 (found major version: ${java_major:-unknown})"
-    missing+=(java-17)
-  fi
-fi
-
-if [[ "${#missing[@]}" -gt 0 ]]; then
-  echo
-  echo "Run install_prerequisites.sh to choose missing Homebrew packages."
-  exit 1
-fi
+check() { if command -v "$1" >/dev/null 2>&1; then echo "[OK] $1: $(command -v "$1")"; else echo "[MISSING] $1"; missing+=("$1"); fi; }
+echo 'macOS CIInfrastructure Controller prerequisites:'
+check java; check curl; check lsof; check jq
+if command -v java >/dev/null 2>&1; then major="$(java -version 2>&1 | head -n 1 | sed -E 's/.*version "([^"]+)".*/\1/' | awk -F. '{if($1==1) print $2; else print $1}')"; if ! [[ "$major" =~ ^[0-9]+$ && "$major" -ge 17 ]]; then echo "[MISSING] Java 17"; missing+=(java-17); fi; fi
+echo 'macOS Jenkins node runtime contract:'
+check pwsh; check python3; check svn
+if ((${#missing[@]})); then for item in "${missing[@]}"; do case "$item" in pwsh) option=--powershell;; python3) option=--python;; svn) option=--subversion;; java|java-17) option=--java;; *) continue;; esac; echo "  Next: ./install_prerequisites.sh $option --dry-run"; echo "  Install: ./install_prerequisites.sh $option"; done; echo 'Restart Jenkins after installation so its PATH is refreshed.'; exit 1; fi
