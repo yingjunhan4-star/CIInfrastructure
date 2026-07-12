@@ -56,6 +56,21 @@ function Merge-ExistingJobConfig {
             $existingDocument.DocumentElement.AppendChild($importedDefinition) | Out-Null
         }
 
+        # [AI] Keep the configured OS agent label synchronized without replacing Job properties.
+        foreach ($nodeName in @("assignedNode", "canRoam")) {
+            $generatedNode = $generatedDocument.DocumentElement.SelectSingleNode($nodeName)
+            $existingNode = $existingDocument.DocumentElement.SelectSingleNode($nodeName)
+            if ($generatedNode) {
+                $importedNode = $existingDocument.ImportNode($generatedNode, $true)
+                if ($existingNode) {
+                    $existingDocument.DocumentElement.ReplaceChild($importedNode, $existingNode) | Out-Null
+                }
+                else {
+                    $existingDocument.DocumentElement.AppendChild($importedNode) | Out-Null
+                }
+            }
+        }
+
         return "<?xml version='1.0' encoding='UTF-8'?>`r`n$($existingDocument.DocumentElement.OuterXml)"
     }
     catch {
@@ -74,12 +89,21 @@ foreach ($job in $jobs) {
     $repositoryUrl = Assert-JobValue -Job $job -PropertyName "repositoryUrl"
     $credentialsId = Assert-JobValue -Job $job -PropertyName "credentialsId"
     $scriptPath = Assert-JobValue -Job $job -PropertyName "scriptPath"
+    $agentLabel = ([string]$job.agentLabel).Trim()
 
     if ($name -notmatch '^[A-Za-z0-9_.-]+$') {
         throw "Invalid Job name '$name'. Use letters, numbers, '.', '_' or '-'."
     }
     if ([System.IO.Path]::IsPathRooted($scriptPath) -or ($scriptPath -split '[/\\]') -contains '..') {
         throw "Job '$name' scriptPath must stay inside the SCM workspace."
+    }
+
+    # [AI] Agent labels are CIInfrastructure-owned; OS tool values remain on the Jenkins node.
+    $agentXml = if ([string]::IsNullOrWhiteSpace($agentLabel)) {
+        "  <canRoam>true</canRoam>"
+    }
+    else {
+        "  <assignedNode>$(Escape-Xml $agentLabel)</assignedNode>`r`n  <canRoam>false</canRoam>"
     }
 
     $xml = @"
@@ -108,6 +132,7 @@ foreach ($job in $jobs) {
     <scriptPath>$(Escape-Xml $scriptPath)</scriptPath>
     <lightweight>true</lightweight>
   </definition>
+  $agentXml
   <disabled>false</disabled>
 </flow-definition>
 "@
