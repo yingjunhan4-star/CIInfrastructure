@@ -1,5 +1,6 @@
 # Local Jenkins configuration and runtime state
 config/jobs.json
+config/release-job-profiles.json
 jenkins-home/
 *.war
 *.pid

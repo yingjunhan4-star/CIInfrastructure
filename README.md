@@ -61,6 +61,7 @@ Windows 入口使用 `.bat`，由 `.bat` 转调对应的 PowerShell 脚本：
 ```bat
 scripts\windows\create_pipeline_jobs.bat -ConfigPath config\jobs.json -DryRun
 scripts\windows\create_pipeline_jobs.bat -ConfigPath config\jobs.json
+scripts\windows\create_release_jobs.bat -ProfilePath config\release-job-profiles.json -DryRun
 scripts\windows\start_jenkins.bat
 scripts\windows\healthcheck_jenkins.bat
 ```
@@ -170,6 +171,19 @@ println "管理员创建完成，请重新登录。"
 复制 `config/jobs.example.json` 的条目到本地 `config/jobs.json`，填写实际 SVN 地址和 Jenkins 凭据 ID。`config/jobs.json` 已被 Git 忽略，凭据本身只在 Jenkins Credentials 中维护，不写入仓库。
 
 Job 使用 `Pipeline script from SCM` 模式。每个 Job 的 SVN 地址和 Jenkinsfile 路径由配置文件指定，Jenkins 自动分配工作区，不使用开发人员工作副本，也不设置 `customWorkspace`。
+
+### Release Job 环境模板
+
+`scripts\windows\create_release_jobs.bat` 用于创建或更新 Release Job。首次使用时复制 `config\release-job-profiles.example.json` 为本地忽略的 `config\release-job-profiles.json`，然后填写 Job 的 SVN 信息、固定 agent label、环境名称和必要的环境覆盖值。
+
+```bat
+copy config\release-job-profiles.example.json config\release-job-profiles.json
+scripts\windows\create_release_jobs.bat -ProfilePath config\release-job-profiles.json -DryRun
+```
+
+模板分为通用参数、`dev` / `pre-online` / `online` 环境默认值，以及单个 Job 的 `parameterOverrides`。新 Job 会得到完整参数集；已有 Job 仅补充缺失参数，已在 Jenkins UI 修改过的参数类型、选项和默认值不会被覆盖。`pre-online` 和 `online` 模板要求在对应 Job 的 `parameterOverrides` 中显式填写 `GAMEADMIN_URL` 和 `CDN_NAME`，防止误用开发环境默认值。
+
+该脚本没有 `-ResetJobConfig` 参数，也不保存 Token、`UNITY_EXE`、Python 或 PowerShell 路径。Token 继续使用 Jenkins Credentials，工具路径继续配置在目标 Agent 的环境变量中。执行真实写入前，按本 README 的既有要求先停止 Jenkins、运行脚本，再启动 Jenkins；`-DryRun` 不写入任何文件。
 
 首次启动前先生成 Job 配置。已有 Jenkins 实例更新 Job 配置时，先停止 Jenkins，再生成配置，最后重新启动，确保 Jenkins 加载最新的 `config.xml`。默认更新只修改 Job 的 SCM 地址和 Jenkinsfile 路径，并保留现有参数、默认值、触发器和其他 Job 设置；只有显式传入 `-ResetJobConfig` 才会重置整个 Job 配置。
 
