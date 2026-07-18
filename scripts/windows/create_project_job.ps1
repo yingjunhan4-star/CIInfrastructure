@@ -19,6 +19,9 @@ $template = Get-Content -LiteralPath $TemplatePath -Raw | ConvertFrom-Json
 $name = if ($JobName) { $JobName } else { Require $template.jobName 'jobName' }
 if ($name -notmatch '^[A-Za-z0-9_.-]+$') { throw "Invalid Job name: $name" }
 $scm = $template.scm
+$templateEnvironment = $template.environment
+$systemUserId = [string]$templateEnvironment.GAMEADMIN_JENKINS_SYSTEM_USER_ID
+if ([string]::IsNullOrWhiteSpace($systemUserId) -or $systemUserId -notmatch '^[A-Za-z0-9_.-]{1,120}$') { throw 'environment.GAMEADMIN_JENKINS_SYSTEM_USER_ID must be a valid Jenkins user ID.' }
 $remote = Escape-Xml (Require $scm.repositoryUrl 'scm.repositoryUrl')
 $credentials = Escape-Xml (Require $scm.credentialsId 'scm.credentialsId')
 $scriptPath = Escape-Xml (Require $scm.scriptPath 'scm.scriptPath')
@@ -39,7 +42,7 @@ foreach ($parameter in @($template.parameters)) {
 
 $xml = @"
 <?xml version="1.0" encoding="UTF-8"?>
-<flow-definition plugin="workflow-job"><actions/><description>Created once by CIInfrastructure from a project template. Jenkins UI owns parameters after creation.</description><keepDependencies>false</keepDependencies><properties><hudson.model.ParametersDefinitionProperty><parameterDefinitions>$parameters</parameterDefinitions></hudson.model.ParametersDefinitionProperty></properties><definition class="org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition" plugin="workflow-cps"><scm class="hudson.scm.SubversionSCM" plugin="subversion"><locations><hudson.scm.SubversionSCM_-ModuleLocation><remote>$remote</remote><credentialsId>$credentials</credentialsId><local>.</local><depthOption>infinity</depthOption><ignoreExternalsOption>false</ignoreExternalsOption></hudson.scm.SubversionSCM_-ModuleLocation></locations><workspaceUpdater class="hudson.scm.subversion.UpdateUpdater"/></scm><scriptPath>$scriptPath</scriptPath><lightweight>true</lightweight></definition><triggers/><disabled>false</disabled></flow-definition>
+<flow-definition plugin="workflow-job"><actions/><description>Created once by CIInfrastructure from a project template. Jenkins UI owns parameters after creation. GameAdmin automated-build user default: $(Escape-Xml $systemUserId).</description><keepDependencies>false</keepDependencies><properties><hudson.model.ParametersDefinitionProperty><parameterDefinitions>$parameters</parameterDefinitions></hudson.model.ParametersDefinitionProperty></properties><definition class="org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition" plugin="workflow-cps"><scm class="hudson.scm.SubversionSCM" plugin="subversion"><locations><hudson.scm.SubversionSCM_-ModuleLocation><remote>$remote</remote><credentialsId>$credentials</credentialsId><local>.</local><depthOption>infinity</depthOption><ignoreExternalsOption>false</ignoreExternalsOption></hudson.scm.SubversionSCM_-ModuleLocation></locations><workspaceUpdater class="hudson.scm.subversion.UpdateUpdater"/></scm><scriptPath>$scriptPath</scriptPath><lightweight>true</lightweight></definition><triggers/><disabled>false</disabled></flow-definition>
 "@
 $jobPath = Join-Path $JenkinsHome "jobs/$name"
 if (Test-Path -LiteralPath $jobPath) { throw "Job '$name' already exists. This tool never updates existing jobs." }
